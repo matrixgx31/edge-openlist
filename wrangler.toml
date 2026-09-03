@@ -1,0 +1,45 @@
+name = "edge-openlist"
+main = "worker/src/index.ts"
+compatibility_date = "2025-07-01"
+compatibility_flags = ["nodejs_compat"]
+
+# 前端静态资源（Vue3 构建产物）由同一 Worker 托管
+[assets]
+directory = "./web/dist"
+binding = "ASSETS"
+not_found_handling = "single-page-application"
+
+# 部署前自动构建前端：wrangler deploy（含 Deploy 按钮默认的 npx wrangler deploy）会先执行此命令，
+# 避免“assets.directory 不存在”的报错。即便 Deploy 按钮未读取 package.json 的 build 脚本也生效。
+[build]
+command = "npm run build:web"
+
+# 生产绑定：与当前 Worker 使用的 Cloudflare 资源保持一致。
+[[d1_databases]]
+binding = "DB"
+database_name = "openlist"
+database_id = "0bc5f3bd-30d4-4190-8fb9-d7bcff23c589"
+
+[[kv_namespaces]]
+binding = "KV"
+id = "2f8d8dbc91bf42e0946b0892f5cccd47"
+
+# ─────────────────────────────────────────────────────────────
+# 部署策略（重要）
+# 本应用强制使用 D1 作为结构化存储（用户 / 挂载 / 分享 / 文件索引）。
+# D1 与 KV 已在上方声明，后续从 GitHub 自动部署时会持续保留绑定。
+# 先纯代码部署上线；部署完成后，再到 Cloudflare 控制台为 Worker 添加绑定：
+#   Settings → Bindings   添加 D1（绑定名 DB，必选）、KV（绑定名 KV，令牌缓存）、R2（绑定名 R2，可选）
+#   Settings → Variables  添加 JWT_SECRET（建议用 Secrets，不可读取）
+# 添加绑定后控制台会自动重新部署使其生效。详见下方 README「在线控制台部署教程」。
+# ─────────────────────────────────────────────────────────────
+
+# 后台爬取建索引（搜索用）
+[triggers]
+crons = ["13 3 * * *"]
+
+[vars]
+APP_TITLE = "EdgeOpenList"
+# JWT_SECRET 部署后在控制台添加（见 README），此处不预置。
+
+# 本地开发：wrangler dev 会自动用本地 D1/KV/R2（miniflare），开箱即用。
